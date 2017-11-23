@@ -21,6 +21,10 @@ namespace Bridge1
             var c = new Comp1();
             l.Load(Document.Body, c);
 
+            var l2 = new CompLoader();
+            var c2 = new Comp1();
+            l2.Load(Document.Body, c2);
+
             // Add a Click event handler
             button.OnClick = (ev) =>
             {

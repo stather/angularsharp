@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 
 namespace Bridge1
@@ -14,20 +15,12 @@ namespace Bridge1
     class CompLoader
     {
         private HTMLElement _element;
-        object _comp;
-        HTMLInputElement inEl;
+        Component _comp;
 
         public CompLoader()
         {
         }
-        private void Person_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            Console.WriteLine(e.PropertyName);
-            Console.WriteLine(" - Old Value: " + e.OldValue);
-            Console.WriteLine(" - New Value: " + e.NewValue);
-            inEl.Value = e.NewValue.ToString();
-        }
-        public void Load(HTMLElement element, object comp)
+        public void Load(HTMLElement element, Component comp)
         {
             _comp = comp;
             _element = element;
@@ -35,7 +28,7 @@ namespace Bridge1
             var config = new AjaxOptions
             {
 
-                Url = "/comp1/Comp1.html",
+                Url = _comp.Markup,
 
                 // Serialize the msg into json
                 //Data = new { value = JsonConvert.SerializeObject(msg) },
@@ -49,31 +42,46 @@ namespace Bridge1
                 // On response, call custom success method
                 Success = (data, textStatus, jqXHR) =>
                 {
-                    // Output the whole response object.
-                    //Console.WriteLine(data);
                     var div = new HTMLDivElement();
-                    div.InnerHTML = data.ToString();
+                    var s = data.ToString();
+                    var pattern = @"{{([a-zA-Z0-9_]+)}}";
+                    var s2 = Regex.Replace(s, pattern, "<as_replace text=\"$1\"></as_replace>");
+                    div.InnerHTML = s2;
                     _element.AppendChild(div);
+                    var bs = div.QuerySelectorAll("[model]");
                     var inputs = div.GetElementsByTagName("input");
                     //inputs.Where(x => x.HasAttribute("model")).DoAction((e) => { e.OnInput = (y) => { var c = 2; }; });
                     foreach (var input in inputs)
                     {
                         var m = input.GetAttribute("model");
-                        inEl = input as HTMLInputElement;
-                        (_comp as INotifyPropertyChanged).PropertyChanged += Person_PropertyChanged;
+                        var inEl = input as HTMLInputElement;
+                        (_comp as INotifyPropertyChanged).PropertyChanged += (sender, args) =>
+                        {
+                            if (args.PropertyName == m)
+                            {
+                                inEl.Value = sender.GetType().GetProperty(args.PropertyName).GetValue(sender).ToString();
+                            }
+                        };
                         input.OnInput = (e) =>
                         {
                             var val = (input as HTMLInputElement).Value;
                             var p = _comp.GetType().GetProperty(m);
                             p.SetValue(_comp, val);
-                            var b = 1;
                         };
                     }
-                    // or, output just the message using
-                    // the "d" property string indexer.
-                    // Console.WriteLine(data["d"]);
 
-                    return;
+                    var reps = div.GetElementsByTagName("as_replace");
+                    foreach (var rep in reps)
+                    {
+                        var m = rep.GetAttribute("text");
+                        (_comp as INotifyPropertyChanged).PropertyChanged += (sender, args) =>
+                        {
+                            if (args.PropertyName == m)
+                            {
+                                rep.TextContent = sender.GetType().GetProperty(args.PropertyName).GetValue(sender).ToString();
+                            }
+                        };
+                    }
                 }
             };
 
